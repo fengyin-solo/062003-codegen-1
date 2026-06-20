@@ -1,0 +1,124 @@
+:root,
+[data-theme='light'] {
+  --bg-primary: #f5f0fa;
+  --bg-secondary: #ebe4f2;
+  --bg-card: #ffffff;
+  --text-primary: #1a1520;
+  --text-secondary: #5a5068;
+  --text-muted: #9a8faa;
+  --border: #ddd5e8;
+  --accent: #9b59c4;
+  --accent-soft: #f0e4f8;
+  --success: #27ae60;
+  --success-soft: #e8f8ef;
+  --danger: #e74c3c;
+  --danger-soft: #fdecea;
+  --warning: #f39c12;
+  --shadow: 0 4px 20px rgba(100, 60, 140, 0.1);
+}
+
+[data-theme='dark'] {
+  --bg-primary: #12101a;
+  --bg-secondary: #1e1a28;
+  --bg-card: #252030;
+  --text-primary: #f0eaf5;
+  --text-secondary: #b0a8be;
+  --text-muted: #6a6078;
+  --border: #3a3448;
+  --accent: #c084fc;
+  --accent-soft: #2d2040;
+  --success: #4ade80;
+  --success-soft: #1a3028;
+  --danger: #f87171;
+  --danger-soft: #301a1a;
+  --warning: #fbbf24;
+  --shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'PingFang SC', 'Microsoft YaHei', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.5;
+  min-height: 100vh;
+  transition: background 0.3s, color 0.3s;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  box-shadow: var(--shadow);
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn.primary:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.btn.danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.btn.ghost {
+  background: transparent;
+}
+
+.btn.sm {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+}
+
+input, button {
+  font-family: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
