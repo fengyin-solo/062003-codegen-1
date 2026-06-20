@@ -61,7 +61,12 @@
             </div>
           </div>
           <span class="trainee-value" :class="{ achieved: tp.achieved }">
-            {{ Math.round(tp.current) }}/{{ tp.target }}
+            <template v-if="progress.theme.targetType === 'rest'">
+              疲劳 {{ Math.round(tp.current) }}≤{{ tp.target }}
+            </template>
+            <template v-else>
+              {{ Math.round(tp.current) }}/{{ tp.target }}
+            </template>
           </span>
         </div>
       </div>
@@ -112,7 +117,7 @@
                   {{ theme.targetCount }}人达到出道标准
                 </span>
                 <span v-else-if="theme.targetType === 'rest'">
-                  全员疲劳≤{{ theme.targetValue }}
+                  {{ theme.targetCount }}人疲劳≤{{ theme.targetValue }}
                 </span>
               </div>
               <div class="option-reward">

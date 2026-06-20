@@ -287,6 +287,7 @@ export const GAME_CONFIG = {
         description: '适当休息调整，恢复状态',
         targetType: 'rest',
         targetValue: 30,
+        targetCount: 3,
         bonus: {
           money: 8000,
           fatigueReduction: 20,

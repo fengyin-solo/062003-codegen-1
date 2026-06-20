@@ -630,6 +630,10 @@ export function setPlanningTheme(state, themeKey, startDay) {
     themeProgress: {
       startStats: {},
       currentStats: {},
+      startFatigue: {},
+      currentFatigue: {},
+      startStress: {},
+      currentStress: {},
     },
   }
 
@@ -637,6 +641,10 @@ export function setPlanningTheme(state, themeKey, startDay) {
   for (const trainee of activeTrainees) {
     planning.themeProgress.startStats[trainee.id] = { ...trainee.stats }
     planning.themeProgress.currentStats[trainee.id] = { ...trainee.stats }
+    planning.themeProgress.startFatigue[trainee.id] = trainee.fatigue
+    planning.themeProgress.currentFatigue[trainee.id] = trainee.fatigue
+    planning.themeProgress.startStress[trainee.id] = trainee.stress
+    planning.themeProgress.currentStress[trainee.id] = trainee.stress
   }
 
   const logs = [
@@ -867,6 +875,8 @@ export function processPlanningDay(state, trainees) {
     const t = trainees.find((x) => x.id === trainee.id)
     if (t) {
       planning.themeProgress.currentStats[trainee.id] = { ...t.stats }
+      planning.themeProgress.currentFatigue[trainee.id] = t.fatigue
+      planning.themeProgress.currentStress[trainee.id] = t.stress
     }
   }
 
@@ -888,9 +898,11 @@ export function getPlanningProgress(state) {
 
   const traineeProgress = activeTrainees.map((trainee) => {
     const startStats = state.planning.themeProgress.startStats[trainee.id] || trainee.stats
+    const startFatigue = state.planning.themeProgress.startFatigue?.[trainee.id] ?? trainee.fatigue
     let progress = 0
     let target = 0
     let current = 0
+    let achieved = false
 
     if (theme.targetType === 'score') {
       current = calcTraineeScore(trainee)
@@ -899,20 +911,29 @@ export function getPlanningProgress(state) {
         (s, [k, v]) => s + v * CFG.rating.scoreWeights[k],
         0
       )
-      progress = target > 0 ? Math.min(100, ((current - startScore) / (target - startScore)) * 100) : 0
+      progress = target > startScore ? Math.min(100, ((current - startScore) / (target - startScore)) * 100) : 0
+      achieved = current >= target
     } else if (theme.targetType === 'debut_ready') {
       current = calcTraineeScore(trainee)
       target = CFG.rating.debutScoreThreshold
       progress = target > 0 ? Math.min(100, (current / target) * 100) : 0
+      achieved = current >= target
     } else if (theme.targetType === 'rest') {
       current = trainee.fatigue
       target = theme.targetValue
-      progress = target > 0 ? Math.min(100, ((100 - current) / (100 - target)) * 100) : 0
+      const effectiveStart = Math.min(Math.max(startFatigue, target + 1), 100)
+      if (effectiveStart > target) {
+        progress = Math.min(100, ((effectiveStart - current) / (effectiveStart - target)) * 100)
+      } else {
+        progress = 100
+      }
+      achieved = current <= target
     } else if (theme.targetStat) {
       current = trainee.stats[theme.targetStat]
       target = theme.targetValue
       const startValue = startStats[theme.targetStat]
-      progress = target > 0 ? Math.min(100, ((current - startValue) / (target - startValue)) * 100) : 0
+      progress = target > startValue ? Math.min(100, ((current - startValue) / (target - startValue)) * 100) : 0
+      achieved = current >= target
     }
 
     return {
@@ -920,7 +941,7 @@ export function getPlanningProgress(state) {
       current,
       target,
       progress: Math.max(0, progress),
-      achieved: current >= target,
+      achieved,
     }
   })
 
