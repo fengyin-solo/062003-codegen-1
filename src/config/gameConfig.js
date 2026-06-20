@@ -194,6 +194,109 @@ export const GAME_CONFIG = {
     '方念慈', '宋时雨', '叶知秋', '周慕青', '赵星河',
   ],
 
+  // ── 月度企划中心 ──
+  planning: {
+    weekDays: 7,
+    themeDuration: 7,
+    themes: {
+      vocal_week: {
+        label: '声乐强化周',
+        icon: '🎤',
+        description: '集中提升唱功，目标是全员唱功达到一定水平',
+        targetStat: 'vocal',
+        targetValue: 50,
+        targetCount: 3,
+        bonus: {
+          money: 15000,
+          fans: 500,
+          statBoost: { stat: 'vocal', value: 5 },
+        },
+        dailyBonus: { statGain: { vocal: [1, 2] } },
+      },
+      dance_week: {
+        label: '舞蹈集训周',
+        icon: '💃',
+        description: '高强度舞蹈训练，提升舞蹈实力和体能',
+        targetStat: 'dance',
+        targetValue: 50,
+        targetCount: 3,
+        bonus: {
+          money: 15000,
+          fans: 500,
+          statBoost: { stat: 'dance', value: 5 },
+        },
+        dailyBonus: { statGain: { dance: [1, 2] } },
+      },
+      rap_week: {
+        label: '说唱特训周',
+        icon: '🎧',
+        description: '说唱技巧特训，培养节奏感和flow',
+        targetStat: 'rap',
+        targetValue: 45,
+        targetCount: 2,
+        bonus: {
+          money: 12000,
+          fans: 400,
+          statBoost: { stat: 'rap', value: 5 },
+        },
+        dailyBonus: { statGain: { rap: [1, 2] } },
+      },
+      charm_week: {
+        label: '魅力塑造周',
+        icon: '✨',
+        description: '提升艺能感和镜头表现力',
+        targetStat: 'charm',
+        targetValue: 55,
+        targetCount: 2,
+        bonus: {
+          money: 15000,
+          fans: 800,
+          statBoost: { stat: 'charm', value: 5 },
+        },
+        dailyBonus: { statGain: { charm: [1, 2], looks: [0, 1] } },
+      },
+      allround_week: {
+        label: '全能发展周',
+        icon: '🌟',
+        description: '均衡发展，目标是提升综合评分',
+        targetType: 'score',
+        targetValue: 60,
+        targetCount: 3,
+        bonus: {
+          money: 20000,
+          fans: 600,
+          stressReduction: 10,
+        },
+        dailyBonus: { statGain: { vocal: [0, 1], dance: [0, 1], rap: [0, 1] } },
+      },
+      debut_prep_week: {
+        label: '出道预备周',
+        icon: '🎯',
+        description: '为出道做准备，目标是达成出道评分',
+        targetType: 'debut_ready',
+        targetCount: 2,
+        bonus: {
+          money: 25000,
+          fans: 1000,
+        },
+        dailyBonus: { fansGain: [20, 50] },
+      },
+      rest_week: {
+        label: '休整调理周',
+        icon: '🌿',
+        description: '适当休息调整，恢复状态',
+        targetType: 'rest',
+        targetValue: 30,
+        bonus: {
+          money: 8000,
+          fatigueReduction: 20,
+          stressReduction: 15,
+        },
+        dailyBonus: { fatigue: [-3, -1], stress: [-2, 0] },
+      },
+    },
+  },
+
   // ── 存档 ──
   storage: {
     savesKey: 'idol-agency-saves-v1',

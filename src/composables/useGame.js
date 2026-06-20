@@ -10,6 +10,8 @@ import {
   calcProfit,
   calcTraineeScore,
   getRelationship,
+  setPlanningTheme,
+  getPlanningProgress,
 } from '../utils/gameLogic'
 import { saveToSlot } from '../utils/storage'
 
@@ -112,6 +114,20 @@ export function useGame() {
     return getRelationship(state.value.relationships, idA, idB)
   }
 
+  function startPlanningTheme(themeKey, startDay) {
+    if (!state.value) return { success: false, message: '游戏未开始' }
+    const result = setPlanningTheme(state.value, themeKey, startDay)
+    if (result.success) {
+      state.value = result.state
+      autoSave()
+    }
+    return result
+  }
+
+  const planningProgress = computed(() =>
+    state.value ? getPlanningProgress(state.value) : null
+  )
+
   return {
     state,
     currentSlot,
@@ -119,6 +135,7 @@ export function useGame() {
     profit,
     daysLeft,
     activeTrainees,
+    planningProgress,
     startNewGame,
     loadGame,
     setSchedule,
@@ -133,6 +150,7 @@ export function useGame() {
     getRel,
     getRatingResults: () => (state.value ? getRatingResults(state.value) : []),
     calcTraineeScore,
+    startPlanningTheme,
     autoSave,
   }
 }

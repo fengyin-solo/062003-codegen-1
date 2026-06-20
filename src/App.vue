@@ -18,6 +18,7 @@
     :can-end-day="canEndDay()"
     :rating-results="getRatingResults()"
     :calc-score="calcTraineeScore"
+    :planning-progress="planningProgress"
     @back="backToMenu"
     @toggle-theme="toggleTheme"
     @set-schedule="setSchedule"
@@ -27,6 +28,7 @@
     @debut="onDebut"
     @resolve-poaching="handlePoaching"
     @release-single="onReleaseSingle"
+    @start-planning-theme="onStartPlanningTheme"
   />
 </template>
 
@@ -47,6 +49,7 @@ const {
   profit,
   daysLeft,
   activeTrainees,
+  planningProgress,
   startNewGame,
   loadGame,
   setSchedule,
@@ -60,6 +63,7 @@ const {
   backToMenu,
   getRatingResults,
   calcTraineeScore,
+  startPlanningTheme,
 } = useGame()
 
 onMounted(() => {
@@ -94,6 +98,13 @@ function onDebut(memberIds, groupName, callback) {
 function onReleaseSingle(groupId) {
   const result = handleReleaseSingle(groupId)
   if (result && !result.success) {
+    alert(result.message)
+  }
+}
+
+function onStartPlanningTheme(themeKey, startDay) {
+  const result = startPlanningTheme(themeKey, startDay)
+  if (!result.success) {
     alert(result.message)
   }
 }

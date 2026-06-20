@@ -24,6 +24,14 @@ export function createInitialGameState() {
     pendingRating: false,
     gameStatus: 'playing',
     lastSingleDay: {},
+    planning: {
+      currentTheme: null,
+      themeStartDay: null,
+      themeEndDay: null,
+      weeklySchedule: [],
+      completedThemes: [],
+      themeProgress: {},
+    },
   }
 }
 
@@ -140,9 +148,10 @@ export function processDay(state) {
   const logs = []
   let money = state.money
   let fans = state.fans
+  let totalRevenue = state.totalRevenue
   let totalExpenses = state.totalExpenses
   const relationships = { ...state.relationships }
-  const trainees = state.trainees.map((t) => ({ ...t, stats: { ...t.stats } }))
+  let trainees = state.trainees.map((t) => ({ ...t, stats: { ...t.stats } }))
   const schedule = state.schedule
 
   const activityGroups = {}
@@ -256,6 +265,12 @@ export function processDay(state) {
     }
   }
 
+  const themeBonusResult = applyDailyThemeBonus(state, trainees, schedule, state.day)
+  if (themeBonusResult.fansGain > 0) {
+    fans += themeBonusResult.fansGain
+    logs.push({ day: state.day, text: `✨ 企划主题加成，粉丝 +${themeBonusResult.fansGain}` })
+  }
+
   const dailyCost =
     CFG.dailyCosts.baseOperatingCost +
     trainees.filter((t) => t.status === 'trainee').length * CFG.dailyCosts.perTraineeCost +
@@ -311,11 +326,41 @@ export function processDay(state) {
     }
   }
 
+  const planningResult = processPlanningDay(
+    { ...state, day: newDay },
+    trainees
+  )
+
+  let planning = planningResult.planning
+  if (
+    state.planning.currentTheme &&
+    state.planning.themeEndDay &&
+    newDay > state.planning.themeEndDay
+  ) {
+    const rewardState = applyThemeRewards({
+      ...state,
+      day: newDay,
+      money,
+      fans,
+      totalRevenue,
+      trainees,
+      logs: [...state.logs, ...logs],
+      planning: state.planning,
+    })
+    money = rewardState.money
+    fans = rewardState.fans
+    totalRevenue = rewardState.totalRevenue
+    trainees = rewardState.trainees
+    planning = rewardState.planning
+    logs.push(...rewardState.logs.slice(state.logs.length))
+  }
+
   const nextState = {
     ...state,
     day: newDay,
     money,
     fans,
+    totalRevenue,
     totalExpenses,
     trainees,
     relationships,
@@ -323,6 +368,7 @@ export function processDay(state) {
     logs: [...state.logs, ...logs],
     pendingEvent,
     pendingRating,
+    planning,
   }
 
   const result = checkVictory(nextState)
@@ -554,4 +600,341 @@ export function getRatingResults(state) {
       canDebut: calcTraineeScore(t) >= CFG.rating.debutScoreThreshold,
     }))
     .sort((a, b) => b.score - a.score)
+}
+
+export function setPlanningTheme(state, themeKey, startDay) {
+  const theme = CFG.planning.themes[themeKey]
+  if (!theme) return { success: false, message: '主题不存在' }
+
+  if (state.planning.currentTheme) {
+    return { success: false, message: '当前已有进行中的企划' }
+  }
+
+  const endDay = startDay + CFG.planning.themeDuration - 1
+  const weeklySchedule = []
+  for (let i = 0; i < CFG.planning.weekDays; i++) {
+    weeklySchedule.push({
+      day: startDay + i,
+      theme: themeKey,
+      activities: [],
+      completed: false,
+    })
+  }
+
+  const planning = {
+    ...state.planning,
+    currentTheme: themeKey,
+    themeStartDay: startDay,
+    themeEndDay: endDay,
+    weeklySchedule,
+    themeProgress: {
+      startStats: {},
+      currentStats: {},
+    },
+  }
+
+  const activeTrainees = getActiveTrainees(state).filter((t) => t.status === 'trainee')
+  for (const trainee of activeTrainees) {
+    planning.themeProgress.startStats[trainee.id] = { ...trainee.stats }
+    planning.themeProgress.currentStats[trainee.id] = { ...trainee.stats }
+  }
+
+  const logs = [
+    ...state.logs,
+    {
+      day: state.day,
+      text: `📋 月度企划启动：${theme.icon} ${theme.label}，持续7天（第${startDay}-${endDay}天）`,
+    },
+  ]
+
+  return {
+    success: true,
+    state: { ...state, planning, logs },
+  }
+}
+
+function checkThemeTargets(state) {
+  if (!state.planning.currentTheme) return { achieved: false, count: 0 }
+
+  const themeKey = state.planning.currentTheme
+  const theme = CFG.planning.themes[themeKey]
+  const activeTrainees = getActiveTrainees(state).filter((t) => t.status === 'trainee')
+
+  let achievedCount = 0
+
+  for (const trainee of activeTrainees) {
+    let achieved = false
+
+    if (theme.targetType === 'score') {
+      const score = calcTraineeScore(trainee)
+      achieved = score >= theme.targetValue
+    } else if (theme.targetType === 'debut_ready') {
+      achieved = calcTraineeScore(trainee) >= CFG.rating.debutScoreThreshold
+    } else if (theme.targetType === 'rest') {
+      achieved = trainee.fatigue <= theme.targetValue
+    } else if (theme.targetStat) {
+      achieved = trainee.stats[theme.targetStat] >= theme.targetValue
+    }
+
+    if (achieved) achievedCount++
+  }
+
+  return {
+    achieved: achievedCount >= theme.targetCount,
+    count: achievedCount,
+    target: theme.targetCount,
+  }
+}
+
+function applyThemeRewards(state) {
+  if (!state.planning.currentTheme) return state
+
+  const themeKey = state.planning.currentTheme
+  const theme = CFG.planning.themes[themeKey]
+  const result = checkThemeTargets(state)
+
+  let money = state.money
+  let fans = state.fans
+  let totalRevenue = state.totalRevenue
+  const logs = [...state.logs]
+  const trainees = state.trainees.map((t) => ({ ...t, stats: { ...t.stats } }))
+  const activeTrainees = trainees.filter((t) => t.status !== 'left')
+
+  if (result.achieved) {
+    logs.push({
+      day: state.day,
+      text: `🎉 企划「${theme.label}」目标达成！获得事务所奖励！`,
+    })
+
+    if (theme.bonus.money) {
+      money += theme.bonus.money
+      totalRevenue += theme.bonus.money
+      logs.push({
+        day: state.day,
+        text: `💰 资金奖励 +¥${theme.bonus.money.toLocaleString()}`,
+      })
+    }
+
+    if (theme.bonus.fans) {
+      fans += theme.bonus.fans
+      logs.push({
+        day: state.day,
+        text: `👥 粉丝奖励 +${theme.bonus.fans.toLocaleString()}`,
+      })
+    }
+
+    if (theme.bonus.statBoost) {
+      const { stat, value } = theme.bonus.statBoost
+      for (const trainee of activeTrainees) {
+        trainee.stats[stat] = clamp(
+          trainee.stats[stat] + value,
+          0,
+          CFG.thresholds.statCap
+        )
+      }
+      logs.push({
+        day: state.day,
+        text: `📈 全员${CFG.statLabels[stat]} +${value}`,
+      })
+    }
+
+    if (theme.bonus.fatigueReduction) {
+      for (const trainee of activeTrainees) {
+        trainee.fatigue = clamp(trainee.fatigue - theme.bonus.fatigueReduction, 0, 100)
+      }
+      logs.push({
+        day: state.day,
+        text: `😌 全员疲劳 -${theme.bonus.fatigueReduction}`,
+      })
+    }
+
+    if (theme.bonus.stressReduction) {
+      for (const trainee of activeTrainees) {
+        trainee.stress = clamp(trainee.stress - theme.bonus.stressReduction, 0, 100)
+      }
+      logs.push({
+        day: state.day,
+        text: `🧘 全员压力 -${theme.bonus.stressReduction}`,
+      })
+    }
+  } else {
+    logs.push({
+      day: state.day,
+      text: `📋 企划「${theme.label}」结束，达成 ${result.count}/${result.target}，未获得奖励。`,
+    })
+  }
+
+  const completedThemes = [
+    ...state.planning.completedThemes,
+    {
+      theme: themeKey,
+      startDay: state.planning.themeStartDay,
+      endDay: state.planning.themeEndDay,
+      achieved: result.achieved,
+      count: result.count,
+      target: result.target,
+    },
+  ]
+
+  const planning = {
+    ...state.planning,
+    currentTheme: null,
+    themeStartDay: null,
+    themeEndDay: null,
+    weeklySchedule: [],
+    completedThemes,
+    themeProgress: {},
+  }
+
+  return {
+    ...state,
+    money,
+    fans,
+    totalRevenue,
+    trainees,
+    logs,
+    planning,
+  }
+}
+
+export function applyDailyThemeBonus(state, trainees, schedule, day) {
+  if (!state.planning.currentTheme) return { trainees, fansGain: 0 }
+
+  const themeKey = state.planning.currentTheme
+  const theme = CFG.planning.themes[themeKey]
+  const bonus = theme.dailyBonus
+  if (!bonus) return { trainees, fansGain: 0 }
+
+  const activeTrainees = trainees.filter((t) => t.status !== 'left' && t.illnessDays === 0)
+  let totalFansGain = 0
+
+  for (const trainee of activeTrainees) {
+    const activityKey = schedule[trainee.id]
+    if (!activityKey) continue
+
+    if (bonus.statGain) {
+      for (const [stat, range] of Object.entries(bonus.statGain)) {
+        const gain = randInt(range[0], range[1])
+        trainee.stats[stat] = clamp(
+          trainee.stats[stat] + gain,
+          0,
+          CFG.thresholds.statCap
+        )
+      }
+    }
+
+    if (bonus.fatigue) {
+      trainee.fatigue = clamp(
+        trainee.fatigue + randInt(bonus.fatigue[0], bonus.fatigue[1]),
+        0,
+        100
+      )
+    }
+
+    if (bonus.stress) {
+      trainee.stress = clamp(
+        trainee.stress + randInt(bonus.stress[0], bonus.stress[1]),
+        0,
+        100
+      )
+    }
+
+    if (bonus.fansGain) {
+      const gain = randInt(bonus.fansGain[0], bonus.fansGain[1])
+      totalFansGain += gain
+      trainee.fans += Math.round(gain * 0.3)
+    }
+  }
+
+  return { trainees, fansGain: totalFansGain }
+}
+
+export function processPlanningDay(state, trainees) {
+  if (!state.planning.currentTheme) return { planning: state.planning, trainees }
+
+  const planning = { ...state.planning }
+  const currentDay = state.day
+
+  const weekIndex = currentDay - planning.themeStartDay
+  if (weekIndex >= 0 && weekIndex < planning.weeklySchedule.length) {
+    planning.weeklySchedule = planning.weeklySchedule.map((day, idx) =>
+      idx === weekIndex ? { ...day, completed: true } : day
+    )
+  }
+
+  const activeTrainees = getActiveTrainees(state).filter((t) => t.status === 'trainee')
+  for (const trainee of activeTrainees) {
+    const t = trainees.find((x) => x.id === trainee.id)
+    if (t) {
+      planning.themeProgress.currentStats[trainee.id] = { ...t.stats }
+    }
+  }
+
+  return { planning, trainees }
+}
+
+export function getPlanningProgress(state) {
+  if (!state.planning.currentTheme) return null
+
+  const themeKey = state.planning.currentTheme
+  const theme = CFG.planning.themes[themeKey]
+  const currentDay = state.day
+  const daysPassed = currentDay - state.planning.themeStartDay + 1
+  const daysTotal = CFG.planning.themeDuration
+  const daysRemaining = Math.max(0, state.planning.themeEndDay - currentDay + 1)
+
+  const result = checkThemeTargets(state)
+  const activeTrainees = getActiveTrainees(state).filter((t) => t.status === 'trainee')
+
+  const traineeProgress = activeTrainees.map((trainee) => {
+    const startStats = state.planning.themeProgress.startStats[trainee.id] || trainee.stats
+    let progress = 0
+    let target = 0
+    let current = 0
+
+    if (theme.targetType === 'score') {
+      current = calcTraineeScore(trainee)
+      target = theme.targetValue
+      const startScore = Object.entries(startStats).reduce(
+        (s, [k, v]) => s + v * CFG.rating.scoreWeights[k],
+        0
+      )
+      progress = target > 0 ? Math.min(100, ((current - startScore) / (target - startScore)) * 100) : 0
+    } else if (theme.targetType === 'debut_ready') {
+      current = calcTraineeScore(trainee)
+      target = CFG.rating.debutScoreThreshold
+      progress = target > 0 ? Math.min(100, (current / target) * 100) : 0
+    } else if (theme.targetType === 'rest') {
+      current = trainee.fatigue
+      target = theme.targetValue
+      progress = target > 0 ? Math.min(100, ((100 - current) / (100 - target)) * 100) : 0
+    } else if (theme.targetStat) {
+      current = trainee.stats[theme.targetStat]
+      target = theme.targetValue
+      const startValue = startStats[theme.targetStat]
+      progress = target > 0 ? Math.min(100, ((current - startValue) / (target - startValue)) * 100) : 0
+    }
+
+    return {
+      trainee,
+      current,
+      target,
+      progress: Math.max(0, progress),
+      achieved: current >= target,
+    }
+  })
+
+  return {
+    theme,
+    themeKey,
+    daysPassed,
+    daysTotal,
+    daysRemaining,
+    overallProgress: Math.min(100, (daysPassed / daysTotal) * 100),
+    targetAchieved: result.achieved,
+    achievedCount: result.count,
+    targetCount: result.target,
+    traineeProgress,
+    weeklySchedule: state.planning.weeklySchedule,
+  }
 }

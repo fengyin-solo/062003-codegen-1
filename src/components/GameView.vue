@@ -34,6 +34,11 @@
       </main>
 
       <aside class="right-panel">
+        <PlanningCenter
+          :state="state"
+          :current-day="state.day"
+          @start-theme="(key, day) => $emit('start-planning-theme', key, day)"
+        />
         <GroupsPanel
           :groups="state.groups"
           :trainees="state.trainees"
@@ -87,6 +92,7 @@ import SchedulePanel from './SchedulePanel.vue'
 import DayLog from './DayLog.vue'
 import GroupsPanel from './GroupsPanel.vue'
 import RelationshipPanel from './RelationshipPanel.vue'
+import PlanningCenter from './PlanningCenter.vue'
 import RatingModal from './RatingModal.vue'
 import DebutModal from './DebutModal.vue'
 import EventModal from './EventModal.vue'
@@ -101,6 +107,7 @@ const props = defineProps({
   canEndDay: Boolean,
   ratingResults: Array,
   calcScore: Function,
+  planningProgress: Object,
 })
 
 const emit = defineEmits([
@@ -113,6 +120,7 @@ const emit = defineEmits([
   'debut',
   'resolve-poaching',
   'release-single',
+  'start-planning-theme',
 ])
 
 const showDebut = ref(false)
